@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>2048</title>
+    <style>
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            text-align: center;
+            /* Mencegah layar ikut tergeser saat main di HP */
+            touch-action: none; 
+            background-color: #faf8ef;
+            margin: 0;
+            padding: 10px;
+        }
+
+        hr {
+            width: 90%;
+            max-width: 500px;
+        }
+
+        #board {
+            width: 320px; /* Diperkecil sedikit agar pas di layar HP */
+            height: 320px;
+            background-color: #cdc1b5;
+            border: 5px solid #bbada0;
+            margin: 0 auto;
+            display: flex;
+            flex-wrap: wrap;
+            padding: 2px;
+            box-sizing: border-box;
+        }
+
+        .tile {
+            width: 72px; /* Disesuaikan dengan ukuran board baru */
+            height: 72px;
+            border: 4px solid #bbada0;
+            font-size: 30px;
+            font-weight: bold;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-sizing: border-box;
+            background-color: #cdc1b5; /* Warna dasar jika kosong */
+        }
+
+        .x2 { background-color: #eee4da; color: #727371; }
+        .x4 { background-color: #ece0ca; color: #727371; }
+        .x8 { background-color: #f4b17a; color: white; }
+        .x16 { background-color: #f59563; color: white; }
+        .x32 { background-color: #f67c5f; color: white; }
+        .x64 { background-color: #f65e3b; color: white; }
+        .x128 { background-color: #edcf72; color: white; font-size: 24px;}
+        .x256 { background-color: #edcc61; color: white; font-size: 24px;}
+        .x512 { background-color: #edc850; color: white; font-size: 24px;}
+        .x1024 { background-color: #edc53f; color: white; font-size: 20px;}
+        .x2048 { background-color: #edc22e; color: white; font-size: 20px;}
+        .x4096 { background-color: #3e3933; color: white; font-size: 20px;}
+        .x8192 { background-color: #f04e30; color: white; font-size: 20px;}
+
+        #game-over {
+            display: none;
+            margin: 16px auto;
+            color: #776e65;
+            font-size: 24px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>2048</h1>
+    <hr>
+    <h2>Score: <span id="score">0</span></h2>
+    <div id="board"></div>
+    <div id="game-over" role="status">Kamu kalah! Tidak ada langkah yang bisa dilakukan.</div>
+
+    <script>
+        var board;
+        var score = 0;
+        var gameOver = false;
+        var rows = 4;
+        var columns = 4;
+
+        window.onload = function() {
+            setGame();
+        }
+
+        function setGame() {
+            board = [
+                [0, 0, 0, 0],
+                [0, 0, 0, 0],
+                [0, 0, 0, 0],
+                [0, 0, 0, 0]
+            ];
+
+            let boardDiv = document.getElementById("board");
+            boardDiv.innerHTML = ""; // Bersihkan board saat restart
+            gameOver = false;
+            document.getElementById("game-over").style.display = "none";
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < columns; c++) {
+                    let tile = document.createElement("div");
+                    tile.id = r.toString() + "-" + c.toString();
+                    let num = board[r][c];
+                    updateTile(tile, num);
+                    boardDiv.append(tile);
+                }
+            }
+            setTwo();
+            setTwo();
+        }
+
+        function updateTile(tile, num) {
+            tile.innerText = "";
+            tile.classList.value = ""; // Bersihkan class lama
+            tile.classList.add("tile");
+            if (num > 0) {
+                tile.innerText = num.toString();
+                if (num <= 4096) {
+                    tile.classList.add("x" + num.toString());
+                } else {
+                    tile.classList.add("x8192");
+                }
+            }
+        }
+
+        // KONTROL KEYBOARD (Desktop)
+        document.addEventListener('keyup', (e) => {
+            if (gameOver) return;
+            if (e.code == "ArrowLeft") { slideLeft(); setTwo(); }
+            else if (e.code == "ArrowRight") { slideRight(); setTwo(); }
+            else if (e.code == "ArrowUp") { slideUp(); setTwo(); }
+            else if (e.code == "ArrowDown") { slideDown(); setTwo(); }
+            else return;
+            document.getElementById("score").innerText = score;
+            checkGameOver();
+        });
+
+        // KONTROL SWIPE (Layar Sentuh HP)
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let touchEndX = 0;
+        let touchEndY = 0;
+
+        document.addEventListener('touchstart', e => {
+            touchStartX = e.changedTouches[0].screenX;
+            touchStartY = e.changedTouches[0].screenY;
+        }, {passive: false});
+
+        document.addEventListener('touchend', e => {
+            touchEndX = e.changedTouches[0].screenX;
+            touchEndY = e.changedTouches[0].screenY;
+            handleSwipe();
+        }, {passive: false});
+
+        function handleSwipe() {
+            if (gameOver) return;
+            let dx = touchEndX - touchStartX;
+            let dy = touchEndY - touchStartY;
+            
+            // Cek apakah usapan cukup panjang agar tidak salah deteksi sentuhan ringan
+            if (Math.abs(dx) > 30 || Math.abs(dy) > 30) {
+                if (Math.abs(dx) > Math.abs(dy)) {
+                    // Usap Horizontal
+                    if (dx > 0) { slideRight(); setTwo(); } 
+                    else { slideLeft(); setTwo(); }
+                } else {
+                    // Usap Vertikal
+                    if (dy > 0) { slideDown(); setTwo(); } 
+                    else { slideUp(); setTwo(); }
+                }
+                document.getElementById("score").innerText = score;
+                checkGameOver();
+            }
+        }
+
+        // LOGIKA PERMAINAN
+        function filterZero(row) {
+            return row.filter(num => num != 0); 
+        }
+
+        function slide(row) {
+            row = filterZero(row);
+            for (let i = 0; i < row.length - 1; i++) {
+                if (row[i] == row[i+1]) {
+                    row[i] *= 2;
+                    row[i+1] = 0;
+                    score += row[i];
+                }
+            }
+            row = filterZero(row);
+            while (row.length < columns) {
+                row.push(0);
+            }
+            return row;
+        }
+
+        function slideLeft() {
+            for (let r = 0; r < rows; r++) {
+                let row = board[r];
+                row = slide(row);
+                board[r] = row;
+                for (let c = 0; c < columns; c++) {
+                    let tile = document.getElementById(r.toString() + "-" + c.toString());
+                    let num = board[r][c];
+                    updateTile(tile, num);
+                }
+            }
+        }
+
+        function slideRight() {
+            for (let r = 0; r < rows; r++) {
+                let row = board[r];
+                row.reverse();
+                row = slide(row);
+                row.reverse();
+                board[r] = row;
+                for (let c = 0; c < columns; c++) {
+                    let tile = document.getElementById(r.toString() + "-" + c.toString());
+                    let num = board[r][c];
+                    updateTile(tile, num);
+                }
+            }
+        }
+
+        function slideUp() {
+            for (let c = 0; c < columns; c++) {
+                let row = [board[0][c], board[1][c], board[2][c], board[3][c]];
+                row = slide(row);
+                for (let r = 0; r < rows; r++) {
+                    board[r][c] = row[r];
+                    let tile = document.getElementById(r.toString() + "-" + c.toString());
+                    let num = board[r][c];
+                    updateTile(tile, num);
+                }
+            }
+        }
+
+        function slideDown() {
+            for (let c = 0; c < columns; c++) {
+                let row = [board[0][c], board[1][c], board[2][c], board[3][c]];
+                row.reverse();
+                row = slide(row);
+                row.reverse();
+                for (let r = 0; r < rows; r++) {
+                    board[r][c] = row[r];
+                    let tile = document.getElementById(r.toString() + "-" + c.toString());
+                    let num = board[r][c];
+                    updateTile(tile, num);
+                }
+            }
+        }
+
+        function setTwo() {
+            if (!hasEmptyTile()) {
+                return;
+            }
+            let found = false;
+            while (!found) {
+                let r = Math.floor(Math.random() * rows);
+                let c = Math.floor(Math.random() * columns);
+                if (board[r][c] == 0) {
+                    board[r][c] = 2;
+                    let tile = document.getElementById(r.toString() + "-" + c.toString());
+                    tile.innerText = "2";
+                    tile.classList.add("x2");
+                    found = true;
+                }
+            }
+        }
+
+        function checkGameOver() {
+            if (hasEmptyTile()) return;
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < columns; c++) {
+                    if (c < columns - 1 && board[r][c] === board[r][c + 1]) return;
+                    if (r < rows - 1 && board[r][c] === board[r + 1][c]) return;
+                }
+            }
+
+            gameOver = true;
+            document.getElementById("game-over").style.display = "block";
+        }
+
+        function hasEmptyTile() {
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < columns; c++) {
+                    if (board[r][c] == 0) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+    </script>
+</body>
+</html>
